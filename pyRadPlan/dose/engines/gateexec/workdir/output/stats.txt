@@ -4,43 +4,43 @@
         "unit": null
     },
     "events": {
-        "value": 200000,
+        "value": 400000,
         "unit": null
     },
     "tracks": {
-        "value": 15448999,
+        "value": 33468151,
         "unit": null
     },
     "steps": {
-        "value": 119069656,
+        "value": 538635782,
         "unit": null
     },
     "init": {
-        "value": 1.24072,
+        "value": 1.49827,
         "unit": "s"
     },
     "duration": {
-        "value": 31.3129,
-        "unit": "s"
+        "value": 2.76416,
+        "unit": "min"
     },
     "pps": {
-        "value": 6387,
+        "value": 2411,
         "unit": null
     },
     "tps": {
-        "value": 493374,
+        "value": 201798,
         "unit": null
     },
     "sps": {
-        "value": 3802574,
+        "value": 3247734,
         "unit": null
     },
     "start_time": {
-        "value": "Mon Nov  3 14:18:50 2025",
+        "value": "Mon Nov  3 14:42:47 2025",
         "unit": null
     },
     "stop_time": {
-        "value": "Mon Nov  3 14:19:23 2025",
+        "value": "Mon Nov  3 14:45:34 2025",
         "unit": null
     },
     "sim_start_time": {
@@ -65,11 +65,12 @@
     },
     "track_types": {
         "value": {
-            "C12": 1,
-            "e+": 8889,
-            "e-": 14746092,
-            "gamma": 694016,
-            "proton": 1
+            "C12": 2,
+            "N14": 2,
+            "O16": 2,
+            "e+": 60767,
+            "e-": 29929388,
+            "gamma": 3477990
         },
         "unit": null
     }

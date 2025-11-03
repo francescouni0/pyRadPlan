@@ -119,28 +119,22 @@ def main(argv: list[str] | None = None) -> int:
         source.position.type = "disc"
         source.position.radius = 2 * mm
 
-        radius = -50 * cm
-        angle_rad = np.deg2rad(gantry_deg)
-        source_x = 0.0
-        source_y = radius * np.sin(angle_rad)
-        source_z = radius * np.cos(angle_rad)
-        source.position.translation = [source_x, source_y, source_z]
+        radius = 100 * cm
+        base_source = np.array([0.0, 0.0, -radius])
+        rot = Rotation.from_euler("y", gantry_deg, degrees=True)
+        source_position = rot.apply(base_source)
+        source.position.translation = source_position.tolist()
 
-        spot_x = spot_x_cm * cm
-        spot_y = spot_y_cm * cm
-        spot_z = 50 * cm
+        spot_vec = np.array([spot_x_cm * cm, spot_y_cm * cm, 0.0])
+        direction = spot_vec - source_position
+        norm = np.linalg.norm(direction)
+        if norm == 0.0:
+            direction = np.array([0.0, 0.0, 1.0])
+        else:
+            direction /= norm
 
-        theta = np.arctan2(spot_y, spot_x)
-        phi = np.arctan2(np.sqrt(spot_x**2 + spot_y**2), spot_z)
-
-        momentum = np.array(
-            [np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]
-        )
-
-        rot = Rotation.from_euler("z", gantry_deg, degrees=True)
-        rotated_momentum = rot.apply(momentum)
         source.direction.type = "momentum"
-        source.direction.momentum = rotated_momentum.tolist()
+        source.direction.momentum = direction.tolist()
         source.n = 10000
 
     stats = sim.add_actor("SimulationStatisticsActor", "stats")

@@ -185,6 +185,48 @@ class PhotonPlan(Plan):
         return v
 
 
+class ElectronPlan(Plan):
+    """
+    Class for an electron treatment plan.
+
+    Attributes
+    ----------
+    Inherits all attributes from Plan.
+
+    Methods
+    -------
+    radiation_mode : str
+        Returns the radiation mode as 'electrons'.
+    """
+
+    radiation_mode: str = "electrons"
+
+    @field_validator("radiation_mode", mode="after")
+    @classmethod
+    def validate_radiation_mode(cls, v: str) -> str:
+        """
+        Validate the radiation mode for an ElectronPlan.
+
+        Parameters
+        ----------
+        v : str
+            The radiation mode to be validated.
+
+        Returns
+        -------
+        str
+            The validated radiation mode.
+
+        Raises
+        ------
+        ValueError
+            If the radiation mode is not "electrons".
+        """
+        if v != "electrons":
+            raise ValueError('radiation_mode for ElectronPlan must be "electrons"')
+        return v
+
+
 class IonPlan(Plan):
     """
     Class for an ion treatment plan.
@@ -273,12 +315,16 @@ def create_pln(data: Union[Dict[str, Any], Plan, None] = None, **kwargs) -> Plan
 
         if radiation_mode == "photons":
             return PhotonPlan.model_validate(data)
+        if radiation_mode == "electrons":
+            return ElectronPlan.model_validate(data)
         # radiation_mode in ['protons', 'helium', 'carbon', 'oxygen']:
         return IonPlan.model_validate(data)
         # raise ValueError(f"Unknown radiation mode: {radiation_mode}")
     radiation_mode = kwargs.get("radiation_mode", "")
     if radiation_mode == "photons":
         return PhotonPlan(**kwargs)
+    if radiation_mode == "electrons":
+        return ElectronPlan(**kwargs)
     if radiation_mode in ["protons", "helium", "carbon", "oxygen"]:
         return IonPlan(**kwargs)
     raise ValueError(f"Unknown radiation mode: {radiation_mode}")

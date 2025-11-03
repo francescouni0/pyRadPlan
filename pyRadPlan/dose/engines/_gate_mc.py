@@ -18,7 +18,7 @@ class GateMonteCarloEngine(DoseEngineBase):
 
     short_name = "GATE_MC"
     name = "Gate Monte Carlo"
-    possible_radiation_modes = ["photons"]
+    possible_radiation_modes = ["electrons"]
 
     def __init__(
         self,

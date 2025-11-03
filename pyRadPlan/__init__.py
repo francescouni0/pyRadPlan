@@ -3,7 +3,7 @@
 from importlib.metadata import version, PackageNotFoundError
 import logging
 
-from .plan._plans import Plan, validate_pln, IonPlan, PhotonPlan
+from .plan._plans import Plan, validate_pln, IonPlan, PhotonPlan, ElectronPlan
 from .ct._ct import CT, validate_ct
 from .cst._cst import StructureSet, validate_cst
 from .stf._generate_stf import generate_stf
@@ -28,6 +28,7 @@ __all__ = [
     "Plan",
     "IonPlan",
     "PhotonPlan",
+    "ElectronPlan",
     "validate_pln",
     "CT",
     "validate_ct",

@@ -4,43 +4,43 @@
         "unit": null
     },
     "events": {
-        "value": 400000,
+        "value": 10000,
         "unit": null
     },
     "tracks": {
-        "value": 33468151,
+        "value": 837062,
         "unit": null
     },
     "steps": {
-        "value": 538635782,
+        "value": 16299483,
         "unit": null
     },
     "init": {
-        "value": 1.49827,
+        "value": 1.84543,
         "unit": "s"
     },
     "duration": {
-        "value": 2.76416,
-        "unit": "min"
+        "value": 7.07118,
+        "unit": "s"
     },
     "pps": {
-        "value": 2411,
+        "value": 1414,
         "unit": null
     },
     "tps": {
-        "value": 201798,
+        "value": 118376,
         "unit": null
     },
     "sps": {
-        "value": 3247734,
+        "value": 2305057,
         "unit": null
     },
     "start_time": {
-        "value": "Mon Nov  3 14:42:47 2025",
+        "value": "Mon Nov  3 16:14:18 2025",
         "unit": null
     },
     "stop_time": {
-        "value": "Mon Nov  3 14:45:34 2025",
+        "value": "Mon Nov  3 16:14:27 2025",
         "unit": null
     },
     "sim_start_time": {
@@ -65,12 +65,9 @@
     },
     "track_types": {
         "value": {
-            "C12": 2,
-            "N14": 2,
-            "O16": 2,
-            "e+": 60767,
-            "e-": 29929388,
-            "gamma": 3477990
+            "e+": 2059,
+            "e-": 727292,
+            "gamma": 107711
         },
         "unit": null
     }

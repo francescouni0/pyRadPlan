@@ -20,6 +20,8 @@ from pyRadPlan.core import Grid
 
 from ._base import DoseEngineBase
 
+MM_TO_CM = 0.1
+
 
 class GateMonteCarloEngine(DoseEngineBase):
     """
@@ -94,10 +96,59 @@ class GateMonteCarloEngine(DoseEngineBase):
         self._verify_workspace()
         exported = self._export_geometry(ct, cst)
 
-        command = self._build_command(stf, exported)
-        self._run_gate(command)
+        requests = self._extract_gate_requests(stf)
+        if not requests:
+            raise ValueError("No beam spots available for Gate Monte Carlo simulation.")
 
-        return self._build_dij(ct)
+        for old_file in self._output_dir.glob("dose3d*.mhd"):
+            old_file.unlink()
+        for old_file in self._output_dir.glob("dose3d*.raw"):
+            old_file.unlink()
+
+        dose_columns: list[np.ndarray] = []
+        beam_num: list[int] = []
+        ray_num: list[int] = []
+        dose_image_reference: Optional[sitk.Image] = None
+
+        for column_index, request in enumerate(requests):
+            self._clear_output_files(column_index)
+            command = self._build_command(request, exported, column_index)
+            self._run_gate(command)
+            column, dose_image = self._load_dose_column(column_index)
+            column *= request.get("weight", 1.0)
+            if dose_image_reference is None:
+                dose_image_reference = dose_image
+            dose_columns.append(column)
+            beam_num.append(request["beam_index"])
+            ray_num.append(request["ray_index"])
+        # Note: beamlet index information can be encoded into ray/beam mappings if needed.
+
+        dose_matrix = np.column_stack(dose_columns)
+
+        physical_dose = np.empty((1,), dtype=object)
+        physical_dose[0] = dose_matrix
+
+        empty_quantity = np.empty((0,), dtype=object)
+
+        dose_grid = Grid.from_sitk_image(dose_image_reference) if dose_image_reference else ct.grid
+
+        beam_num_arr = np.array(beam_num, dtype=int)
+        ray_num_arr = np.array(ray_num, dtype=int)
+        bixel_num_arr = np.arange(dose_matrix.shape[1], dtype=int)
+        num_of_beams = int(np.unique(beam_num_arr).size)
+
+        return Dij(
+            ct_grid=ct.grid,
+            dose_grid=dose_grid,
+            physical_dose=physical_dose,
+            let_dose=empty_quantity,
+            alpha_dose=empty_quantity,
+            sqrt_beta_dose=empty_quantity,
+            num_of_beams=num_of_beams,
+            beam_num=beam_num_arr,
+            ray_num=ray_num_arr,
+            bixel_num=bixel_num_arr,
+        )
 
     # --------------------------------------------------------------- configure
 
@@ -187,10 +238,64 @@ class GateMonteCarloEngine(DoseEngineBase):
 
     # ----------------------------------------------------------------- Gate run
 
+    def _extract_gate_requests(self, stf: SteeringInformation) -> list[dict[str, float]]:
+        """Collect beam/ray positions to be simulated with Gate."""
+
+        requests: list[dict[str, float]] = []
+        if not stf or not getattr(stf, "beams", None):
+            return requests
+
+        for beam_index, beam in enumerate(stf.beams):
+            gantry_angle = float(getattr(beam, "gantry_angle", 0.0))
+            rays = getattr(beam, "rays", [])
+            if not rays:
+                continue
+            for ray_index, ray in enumerate(rays):
+                ray_pos = getattr(ray, "ray_pos", None)
+                if ray_pos is None:
+                    continue
+                spot_x_cm = float(ray_pos[0]) * MM_TO_CM
+                spot_y_cm = float(ray_pos[2]) * MM_TO_CM
+                beamlets = getattr(ray, "beamlets", [])
+                if not beamlets:
+                    requests.append(
+                        {
+                            "beam_index": beam_index,
+                            "ray_index": ray_index,
+                            "beamlet_index": 0,
+                            "spot_x_cm": spot_x_cm,
+                            "spot_y_cm": spot_y_cm,
+                            "gantry_deg": gantry_angle,
+                            "weight": 1.0,
+                        }
+                    )
+                    continue
+
+                # Use the first beamlet as representative for now (TODO: extend to all beamlets)
+                for beamlet_index, beamlet in enumerate(beamlets):
+                    weight = float(getattr(beamlet, "weight", 0.0))
+                    if weight == 0.0:
+                        continue
+                    requests.append(
+                        {
+                            "beam_index": beam_index,
+                            "ray_index": ray_index,
+                            "beamlet_index": beamlet_index,
+                            "spot_x_cm": spot_x_cm,
+                            "spot_y_cm": spot_y_cm,
+                            "gantry_deg": gantry_angle,
+                            "weight": weight,
+                        }
+                    )
+                    break
+
+        return requests
+
     def _build_command(
         self,
-        stf: SteeringInformation,
+        request: dict[str, float],
         exported: dict[str, pathlib.Path],
+        identifier: int,
     ) -> list[str]:
         """
         Construct the command used to invoke the Gate executable.
@@ -204,42 +309,21 @@ class GateMonteCarloEngine(DoseEngineBase):
         # Allow caller to specify additional arguments (e.g. python script path)
         command.extend(map(str, self.extra_args))
 
-        beam_definitions: list[tuple[float, float, float]] = []
-        if stf and getattr(stf, "beams", None):
-            for beam in stf.beams:
-                gantry_angle = float(getattr(beam, "gantry_angle", 0.0))
-                spot_x = 0.0
-                spot_y = 0.0
-                spot_map = getattr(beam, "spots", None)
-                if spot_map is not None and len(spot_map) > 0:
-                    first_spot = spot_map[0]
-                    spot_x = float(getattr(first_spot, "position_x", spot_x))
-                    spot_y = float(getattr(first_spot, "position_y", spot_y))
-                beam_definitions.append((spot_x, spot_y, gantry_angle))
-
-        if not beam_definitions:
-            beam_definitions.append((0.0, 0.0, 0.0))
-
-        # Keep backward compatibility for drivers expecting single-spot args
-        first_spot_x, first_spot_y, first_gantry = beam_definitions[0]
         command.extend(
             [
                 "--spot",
-                str(first_spot_x),
-                str(first_spot_y),
+                str(request["spot_x_cm"]),
+                str(request["spot_y_cm"]),
                 "--gantry",
-                str(first_gantry),
+                str(request["gantry_deg"]),
                 "--id",
-                "0",
+                str(identifier),
                 "--output",
                 str(self._output_dir.resolve()),
                 "--threads",
                 str(self.threads),
             ]
         )
-
-        for spot_x, spot_y, gantry_angle in beam_definitions:
-            command.extend(["--beam", str(spot_x), str(spot_y), str(gantry_angle)])
 
         if self.seed is not None:
             command.extend(["--seed", str(self.seed)])
@@ -268,8 +352,20 @@ class GateMonteCarloEngine(DoseEngineBase):
 
         logging.getLogger(__name__).debug("Gate stdout:\n%s", proc.stdout)
 
-    def _find_dose_file(self) -> pathlib.Path:
+    def _clear_output_files(self, identifier: int) -> None:
+        base = self._output_dir / f"dose3d{identifier}"
+        for ext in (".mhd", ".raw", ".mha"):
+            path = base.with_suffix(ext)
+            if path.exists():
+                path.unlink()
+
+    def _find_dose_file(self, identifier: Optional[int] = None) -> pathlib.Path:
         """Locate the Gate-generated dose file."""
+
+        if identifier is not None:
+            candidate = self._output_dir / f"dose3d{identifier}.mhd"
+            if candidate.exists():
+                return candidate
 
         pattern = str(self._output_dir / "dose3d*.mhd")
         candidates = sorted(glob(pattern))
@@ -279,30 +375,8 @@ class GateMonteCarloEngine(DoseEngineBase):
             )
         return pathlib.Path(candidates[-1])
 
-    def _build_dij(self, ct: CT) -> Dij:
-        """Construct a Dij object from the simulated dose cube."""
-
-        dose_path = self._find_dose_file()
+    def _load_dose_column(self, identifier: int) -> tuple[np.ndarray, sitk.Image]:
+        dose_path = self._find_dose_file(identifier)
         dose_image = sitk.ReadImage(str(dose_path))
         dose_array = sitk.GetArrayFromImage(dose_image).astype(np.float64)
-
-        num_voxels = dose_array.size
-        dose_matrix = dose_array.reshape(num_voxels, 1)
-
-        physical_dose = np.empty((1,), dtype=object)
-        physical_dose[0] = dose_matrix
-
-        empty_quantity = np.empty((0,), dtype=object)
-
-        return Dij(
-            ct_grid=ct.grid,
-            dose_grid=Grid.from_sitk_image(dose_image),
-            physical_dose=physical_dose,
-            let_dose=empty_quantity,
-            alpha_dose=empty_quantity,
-            sqrt_beta_dose=empty_quantity,
-            num_of_beams=1,
-            beam_num=np.array([0], dtype=int),
-            ray_num=np.array([0], dtype=int),
-            bixel_num=np.array([0], dtype=int),
-        )
+        return dose_array.ravel(), dose_image

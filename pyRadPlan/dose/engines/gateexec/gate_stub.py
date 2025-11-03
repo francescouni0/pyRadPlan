@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
 
         source.direction.type = "momentum"
         source.direction.momentum = direction.tolist()
-        source.n = 10000
+        source.n = 1000
 
     stats = sim.add_actor("SimulationStatisticsActor", "stats")
     stats.track_types_flag = True

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import pathlib
+import subprocess
+import logging
 from typing import Optional, Sequence, Union
 
 import numpy as np
@@ -89,6 +91,9 @@ class GateMonteCarloEngine(DoseEngineBase):
 
         self._verify_workspace()
         exported = self._export_geometry(ct, cst)
+
+        command = self._build_command(stf, exported)
+        self._run_gate(command)
 
         raise NotImplementedError(
             "Gate MC core dose calculation not implemented yet. "
@@ -180,3 +185,72 @@ class GateMonteCarloEngine(DoseEngineBase):
         # Additional VOIs / material maps can be exported here as needed.
 
         return exported
+
+    # ----------------------------------------------------------------- Gate run
+
+    def _build_command(
+        self,
+        stf: SteeringInformation,
+        exported: dict[str, pathlib.Path],
+    ) -> list[str]:
+        """
+        Construct the command used to invoke the Gate executable.
+
+        Currently this uses placeholder spot / gantry values until the steering
+        information is fully mapped to Gate sources.
+        """
+
+        spot_x, spot_y = 0.0, 0.0
+        gantry_angle = 0.0
+
+        if stf and getattr(stf, "beams", None):
+            beam = stf.beams[0]
+            gantry_angle = float(getattr(beam, "gantry_angle", gantry_angle))
+            spot_map = getattr(beam, "spots", None)
+            if spot_map is not None and len(spot_map) > 0:
+                first_spot = spot_map[0]
+                spot_x = float(getattr(first_spot, "position_x", spot_x))
+                spot_y = float(getattr(first_spot, "position_y", spot_y))
+
+        command: list[str] = [
+            str(self.gate_exec),
+            "--spot",
+            str(spot_x),
+            str(spot_y),
+            "--gantry",
+            str(gantry_angle),
+            "--id",
+            "0",
+            "--output",
+            str(self._output_dir.resolve()),
+            "--threads",
+            str(self.threads),
+        ]
+
+        if self.seed is not None:
+            command.extend(["--seed", str(self.seed)])
+
+        command.extend(self.extra_args)
+        return command
+
+    def _run_gate(self, command: list[str]) -> None:
+        """Execute the Gate process and surface errors."""
+
+        logging.getLogger(__name__).debug("Running Gate command: %s", " ".join(command))
+
+        proc = subprocess.run(
+            command,
+            cwd=self.workdir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        if proc.returncode != 0:
+            logging.getLogger(__name__).error("Gate stdout:\n%s", proc.stdout)
+            logging.getLogger(__name__).error("Gate stderr:\n%s", proc.stderr)
+            raise RuntimeError(
+                f"Gate execution failed with return code {proc.returncode}."
+            )
+
+        logging.getLogger(__name__).debug("Gate stdout:\n%s", proc.stdout)

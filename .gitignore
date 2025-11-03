@@ -173,3 +173,8 @@ pyRadPlan/optimization/solvers/ipopt-0.1.9
 pyRadPlan/optimization/solvers/IpoptMUMPS
 .idea
 token.txt
+
+
+
+*.mhd
+*.raw

@@ -10,6 +10,8 @@ using the OpenGATE Python API.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
+
 import numpy as np
 import opengate as gate
 from scipy.spatial.transform import Rotation
@@ -28,6 +30,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Isocenter translation (unused)",
     )
     parser.add_argument("--gantry", type=float, default=0.0, help="Gantry angle in degrees")
+    parser.add_argument(
+        "--beam",
+        action="append",
+        nargs=3,
+        type=float,
+        metavar=("SPOT_X_CM", "SPOT_Y_CM", "GANTRY_DEG"),
+        help="Beam definition; supply multiple times for multiple beams.",
+    )
     parser.add_argument("--output", type=str, default="pyRadPlan/pyRadPlan/dose/engines/gateexec/workdir/output", help="Output directory")
     parser.add_argument("--threads", type=int, default=10, help="Number of threads")
     parser.add_argument("--seed", type=str, default="auto", help="Random engine seed")
@@ -65,11 +75,23 @@ def main(argv: list[str] | None = None) -> int:
     mat_db.add_material_nb_atoms("G4_PLEXIGLASS", ["C", "H", "O"], [5, 8, 2], 1.19 * gcm3)
     mat_db.add_material_nb_atoms("G4_WATER", ["H", "O"], [2, 1], 1.0 * gcm3)
 
-    patient = sim.add_volume("Box", "patient")
-    patient.size = [20 * cm, 20 * cm, 20 * cm]
-    patient.translation = [0.0 * cm, 0.0 * cm, 0.0 * cm]
-    patient.material = "G4_WATER"
+    ct_path = Path.cwd() / "input" / "ct.mhd"
+
+    patient = sim.add_volume("Image", name="patient")
+    patient.image = str(ct_path)
+    patient.mother = "world"
+    patient.material = "G4_AIR"
+    patient.rotation = Rotation.from_euler("x", 90, degrees=True).as_matrix()
+    patient.voxel_materials = [
+        [-2000, -900, "G4_AIR"],
+        [-900, -100, "G4_LUNG_ICRP"],
+        [-100, 0, "G4_ADIPOSE_TISSUE_ICRP"],
+        [0, 300, "G4_TISSUE_SOFT_ICRP"],
+        [300, 800, "G4_B-100_BONE"],
+        [800, 6000, "G4_BONE_COMPACT_ICRU"],
+    ]
     patient.color = [-5, 0, 1, 1]
+
 
     sim.physics_manager.physics_list_name = "G4EmStandardPhysics_option1"
     sim.physics_manager.set_production_cut("world", "gamma", 1 * mm)
@@ -81,40 +103,45 @@ def main(argv: list[str] | None = None) -> int:
     sim.physics_manager.set_production_cut("patient", "positron", 10 * mm)
     sim.physics_manager.set_production_cut("patient", "proton", 10 * mm)
 
-    source = sim.add_source("GenericSource", "mysource")
-    source.particle = "e-"
-    source.energy.type = "spectrum_discrete"
-    source.energy.spectrum_energies = [116, 117, 118, 119, 120, 121, 122, 123, 124]
-    source.energy.spectrum_weights = [0.2, 0.4, 0.6, 0.8, 1.0, 0.8, 0.6, 0.4, 0.2]
+    if args.beam:
+        beam_definitions = [(float(b[0]), float(b[1]), float(b[2])) for b in args.beam]
+    else:
+        spot_vals = args.spot if len(args.spot) >= 2 else [0.0, 0.0]
+        beam_definitions = [(float(spot_vals[0]), float(spot_vals[1]), float(args.gantry))]
 
-    source.position.type = "disc"
-    source.position.radius = 200 * mm
+    for beam_idx, (spot_x_cm, spot_y_cm, gantry_deg) in enumerate(beam_definitions):
+        source = sim.add_source("GenericSource", f"mysource_{beam_idx}")
+        source.particle = "e-"
+        source.energy.type = "spectrum_discrete"
+        source.energy.spectrum_energies = [116, 117, 118, 119, 120, 121, 122, 123, 124]
+        source.energy.spectrum_weights = [0.2, 0.4, 0.6, 0.8, 1.0, 0.8, 0.6, 0.4, 0.2]
 
-    radius = -50 * cm
-    angle_rad = np.deg2rad(args.gantry)
-    source_x = 0.0
-    source_y = radius * np.sin(angle_rad)
-    source_z = radius * np.cos(angle_rad)
-    source.position.translation = [source_x, source_y, source_z]
+        source.position.type = "disc"
+        source.position.radius = 2 * mm
 
-    spot_x = args.spot[0] * cm
-    spot_y = args.spot[1] * cm
-    spot_z = 50 * cm
+        radius = -50 * cm
+        angle_rad = np.deg2rad(gantry_deg)
+        source_x = 0.0
+        source_y = radius * np.sin(angle_rad)
+        source_z = radius * np.cos(angle_rad)
+        source.position.translation = [source_x, source_y, source_z]
 
-    theta = np.arctan2(spot_y, spot_x)
-    phi = np.arctan2(np.sqrt(spot_x**2 + spot_y**2), spot_z)
+        spot_x = spot_x_cm * cm
+        spot_y = spot_y_cm * cm
+        spot_z = 50 * cm
 
-    momentum = np.array([
-        np.cos(theta) * np.sin(phi),
-        np.sin(theta) * np.sin(phi),
-        np.cos(phi),
-    ])
+        theta = np.arctan2(spot_y, spot_x)
+        phi = np.arctan2(np.sqrt(spot_x**2 + spot_y**2), spot_z)
 
-    rot = Rotation.from_euler("x", -args.gantry, degrees=True)
-    rotated_momentum = rot.apply(momentum)
-    source.direction.type = "momentum"
-    source.direction.momentum = rotated_momentum.tolist()
-    source.n = 10_000_000
+        momentum = np.array(
+            [np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)]
+        )
+
+        rot = Rotation.from_euler("z", gantry_deg, degrees=True)
+        rotated_momentum = rot.apply(momentum)
+        source.direction.type = "momentum"
+        source.direction.momentum = rotated_momentum.tolist()
+        source.n = 10000
 
     stats = sim.add_actor("SimulationStatisticsActor", "stats")
     stats.track_types_flag = True

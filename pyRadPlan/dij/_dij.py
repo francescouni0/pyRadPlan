@@ -70,7 +70,15 @@ class Dij(PyRadPlanBaseModel):
     def quantities(self) -> list[str]:
         """Name of available uantities matrices."""
         potential_quantities = ["physical_dose", "let_dose", "alpha_dose", "sqrt_beta_dose"]
-        return [q for q in potential_quantities if getattr(self, q) is not None]
+        available = []
+        for q in potential_quantities:
+            value = getattr(self, q)
+            if value is None:
+                continue
+            if isinstance(value, np.ndarray) and value.size == 0:
+                continue
+            available.append(q)
+        return available
 
     @field_validator("physical_dose", "let_dose", "alpha_dose", "sqrt_beta_dose", mode="before")
     @classmethod
@@ -288,21 +296,30 @@ class Dij(PyRadPlanBaseModel):
         if self.physical_dose is not None:
             out["physical_dose"] = self.physical_dose.flat[scenario_index] @ intensity
 
-        if self.let_dose is not None:
+        if self.let_dose is not None and self.let_dose.size > 0:
             if self.physical_dose is None:
                 raise ValueError("Physical dose must be calculated for dose-weighted let")
 
+            let_matrix = self.let_dose.flat[scenario_index]
+            if let_matrix is None:
+                let_matrix = np.zeros_like(out["physical_dose"])
+
             indices = out["physical_dose"] > 0.05 * np.max(out["physical_dose"])
 
-            let_dose = self.let_dose.flat[scenario_index] @ intensity
+            let_dose = let_matrix @ intensity
             out["let"] = np.zeros_like(let_dose)
             out["let"][indices] = let_dose[indices] / out["physical_dose"][indices]
 
-        if self.alpha_dose is not None and self.sqrt_beta_dose is not None:
-            out["effect"] = (
-                self.alpha_dose.flat[scenario_index] @ intensity
-                + (self.sqrt_beta_dose.flat[scenario_index] @ intensity) ** 2
-            )
+        if (
+            self.alpha_dose is not None
+            and self.sqrt_beta_dose is not None
+            and self.alpha_dose.size > 0
+            and self.sqrt_beta_dose.size > 0
+        ):
+            alpha_mat = self.alpha_dose.flat[scenario_index]
+            beta_mat = self.sqrt_beta_dose.flat[scenario_index]
+            if alpha_mat is not None and beta_mat is not None:
+                out["effect"] = alpha_mat @ intensity + (beta_mat @ intensity) ** 2
 
         return out
 

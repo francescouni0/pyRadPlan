@@ -1,46 +1,46 @@
 {
     "runs": {
-        "value": 10,
+        "value": 1,
         "unit": null
     },
     "events": {
-        "value": 10000,
+        "value": 1000,
         "unit": null
     },
     "tracks": {
-        "value": 837062,
+        "value": 96629,
         "unit": null
     },
     "steps": {
-        "value": 16299483,
+        "value": 1085606,
         "unit": null
     },
     "init": {
-        "value": 1.84543,
+        "value": 1.48907,
         "unit": "s"
     },
     "duration": {
-        "value": 7.07118,
+        "value": 2.1299,
         "unit": "s"
     },
     "pps": {
-        "value": 1414,
+        "value": 469,
         "unit": null
     },
     "tps": {
-        "value": 118376,
+        "value": 45367,
         "unit": null
     },
     "sps": {
-        "value": 2305057,
+        "value": 509699,
         "unit": null
     },
     "start_time": {
-        "value": "Mon Nov  3 16:14:18 2025",
+        "value": "Mon Nov  3 17:07:38 2025",
         "unit": null
     },
     "stop_time": {
-        "value": "Mon Nov  3 16:14:27 2025",
+        "value": "Mon Nov  3 17:07:42 2025",
         "unit": null
     },
     "sim_start_time": {
@@ -52,7 +52,7 @@
         "unit": "s"
     },
     "threads": {
-        "value": 10,
+        "value": 1,
         "unit": null
     },
     "arch": {
@@ -65,9 +65,9 @@
     },
     "track_types": {
         "value": {
-            "e+": 2059,
-            "e-": 727292,
-            "gamma": 107711
+            "e+": 104,
+            "e-": 89693,
+            "gamma": 6832
         },
         "unit": null
     }

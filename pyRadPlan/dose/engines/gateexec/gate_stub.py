@@ -144,9 +144,9 @@ def main(argv: list[str] | None = None) -> int:
     depth_dose = sim.add_actor("DoseActor", "dose")
     depth_dose.attached_to = "patient"
     depth_dose.output_filename = f"dose3d{args.id}.mhd"
-    depth_dose.spacing = np.array([0.586, 0.586, 1.0])
+    depth_dose.spacing = np.array([1, 1, 0.5])
     depth_dose.size = np.array([512, 512, 376])
-    depth_dose.translation = [2 * mm, 3 * mm, -2 * mm]
+    #depth_dose.translation = [0 * mm, 3 * mm, -2 * mm]
     depth_dose.hit_type = "random"
     depth_dose.dose.active = True
 

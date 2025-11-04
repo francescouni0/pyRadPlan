@@ -17,7 +17,20 @@ from pyRadPlan.dij import validate_dij
 from . import matfile
 
 logger = logging.getLogger(__name__)
+def load_prostate() -> tuple[CT, StructureSet]:
+    """
+    Load the included prostate phantom.
 
+    This is a helper function to load the prostate phantom included in the
+    package data using importlib.resources.
+
+    Returns
+    -------
+    tuple[CT, StructureSet]
+        The CT and StructureSet objects.
+    """
+    phantom_data_str = resources.files("pyRadPlan.data.phantoms").joinpath("PROSTATE.mat")
+    return load_patient(phantom_data_str)
 
 def load_tg119() -> tuple[CT, StructureSet]:
     """

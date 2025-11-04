@@ -19,7 +19,6 @@ from scipy.spatial.transform import Rotation
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Gate/OpenGATE development stub")
-    parser.add_argument("--source_n", type=int, default=10, help="Number of sources (unused)")
     parser.add_argument("--id", type=int, default=0, help="Identifier used in the dose filename")
     parser.add_argument("--spot", type=float, nargs="+", default=[0.0, 0.0], help="Spot coordinates (x y)")
     parser.add_argument(

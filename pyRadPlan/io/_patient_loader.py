@@ -17,6 +17,8 @@ from pyRadPlan.dij import validate_dij
 from . import matfile
 
 logger = logging.getLogger(__name__)
+
+
 def load_prostate() -> tuple[CT, StructureSet]:
     """
     Load the included prostate phantom.

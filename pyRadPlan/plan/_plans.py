@@ -333,7 +333,7 @@ def create_pln(data: Union[Dict[str, Any], Plan, None] = None, **kwargs) -> Plan
         return PhotonPlan(**kwargs)
     if radiation_mode == "electrons":
         return ElectronPlan(**kwargs)
-    if radiation_mode in ["protons", "helium", "carbon", "oxygen"]:
+    if radiation_mode in IonPlan.available_radiation_modes:
         return IonPlan(**kwargs)
     raise ValueError(f"Unknown radiation mode: {radiation_mode}")
 

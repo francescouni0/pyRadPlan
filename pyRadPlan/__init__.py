@@ -12,7 +12,7 @@ from .dose._calc_dose import calc_dose_influence, calc_dose_forward
 from .optimization._fluence_optimization import fluence_optimization
 from .analysis._dvh import DVH, DVHCollection
 from .visualization import plot_slice
-from .io import load_patient, load_tg119
+from .io import load_patient, load_tg119, load_prostate
 
 try:
     __version__ = version(__name__)

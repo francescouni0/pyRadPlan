@@ -10,6 +10,10 @@ from ..solvers import NonLinearOptimizer
 class SimpleLeastSquaresFluenceOptimization(NonLinearPlanningProblem):
     """Simple least squares fluence-based planning problem."""
 
+    name = "VHEE Least-Squares Fluence Problem"
+    short_name = "vhee_simple_ls"
+    possible_radiation_modes = ["VHEE"]
+
     penalties: ArrayLike
     result: dict[str]
 
@@ -23,13 +27,41 @@ class SimpleLeastSquaresFluenceOptimization(NonLinearPlanningProblem):
         self._grad_cache = None
         self._result_cache = None
         self._w_cache = None
+        self.result = {}
 
         super().__init__(pln)
 
     def _initialize(self):
+        # Clean up objectives list to avoid invalid placeholders coming from legacy datasets
+        for voi in self._cst.vois:
+            if isinstance(voi.objectives, list):
+                cleaned = []
+                for obj in voi.objectives:
+                    skip = False
+                    if obj is None:
+                        skip = True
+                    elif isinstance(obj, (list, tuple)) and len(obj) == 0:
+                        skip = True
+                    elif isinstance(obj, dict) and len(obj) == 0:
+                        skip = True
+                    elif hasattr(obj, "size") and getattr(obj, "size") == 0:
+                        skip = True
+
+                    if not skip:
+                        cleaned.append(obj)
+                voi.objectives = cleaned
+
         super()._initialize()
         self._target_voxels = self._cst.target_union_voxels(order="numpy")
         self._patient_voxels = self._cst.patient_voxels(order="numpy")
+        if self._target_voxels.size == 0:
+            raise ValueError("Target structure not available for VHEE optimisation.")
+        if self._patient_voxels.size == 0:
+            raise ValueError("Patient mask not available for VHEE optimisation.")
+
+        self.penalties = np.asarray(self.penalties, dtype=np.float64)
+        if self.penalties.ndim != 1 or self.penalties.size != 2:
+            raise ValueError("penalties must be a length-2 vector [target_weight, patient_weight].")
 
         # Check if the solver is adequate to solve this problem
         # TODO: check that it can do constraints
@@ -40,10 +72,16 @@ class SimpleLeastSquaresFluenceOptimization(NonLinearPlanningProblem):
         self.solver.gradient = self._objective_gradient
         self.solver.bounds = (0.0, np.inf)
         self.solver.max_iter = 500
-        self.solver.options = {
-            "disp": True,
-            "ftol": 1e-4,
-        }
+        self.solver.abs_obj_tol = 1e-4
+        if hasattr(self.solver, "options"):
+            self.solver.options.update(
+                {
+                    "print_level": 0,
+                    "print_user_options": "no",
+                    "print_options_documentation": "no",
+                    "print_timing_statistics": "no",
+                }
+            )
 
     def _objective_functions(self, x: np.ndarray) -> np.ndarray:
         """Define the objective functions."""
@@ -74,6 +112,8 @@ class SimpleLeastSquaresFluenceOptimization(NonLinearPlanningProblem):
 
         if self._grad_cache_intermediate is None:
             self._grad_cache_intermediate = np.zeros((dose.size, 2))
+        else:
+            self._grad_cache_intermediate.fill(0.0)
 
         # We do no sanity checks here, i.e., the grids need to be the same
 

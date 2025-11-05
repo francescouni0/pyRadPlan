@@ -136,6 +136,7 @@ class PlanningProblem(ABC):
                     f", but you are using '{self.short_name}'!"
                 )
             prop_dict.pop("opti_prob", None)
+            prop_dict.pop("problem", None)
         else:
             prop_dict = {}
 

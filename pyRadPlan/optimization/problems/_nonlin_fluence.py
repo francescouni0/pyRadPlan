@@ -33,6 +33,7 @@ class NonLinearFluencePlanningProblem(NonLinearPlanningProblem):
 
     name = "Non-Linear Fluence Planning Problem"
     short_name = "nonlin_fluence"
+    possible_radiation_modes = ["photons", "protons", "helium", "carbon", "oxygen"]
 
     bypass_objective_jacobian: bool
 

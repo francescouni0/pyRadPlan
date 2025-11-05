@@ -46,7 +46,7 @@ def validate_machine(data: Union[dict[str, Any], Machine, None] = None, **kwargs
                 if radiation_mode == "photons":
                     return PhotonLINAC.model_validate(data)
 
-                if radiation_mode in ["protons", "helium", "carbon"]:
+                if radiation_mode in ["protons", "helium", "carbon", "oxygen", "VHEE"]:
                     return IonAccelerator.model_validate(data)
 
         raise ValueError("Dictionary Structure of provided machine not valid!")
@@ -55,7 +55,7 @@ def validate_machine(data: Union[dict[str, Any], Machine, None] = None, **kwargs
     if radiation_mode == "photons":
         return PhotonLINAC(**kwargs)
 
-    if radiation_mode in ["protons", "helium", "carbon"]:
+    if radiation_mode in ["protons", "helium", "carbon", "oxygen", "VHEE"]:
         return IonAccelerator(**kwargs)
 
     raise ValueError(f"Unknown radiation mode: {radiation_mode}")

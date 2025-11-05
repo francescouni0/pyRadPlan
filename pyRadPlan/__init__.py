@@ -45,4 +45,5 @@ __all__ = [
     "plot_slice",
     "load_patient",
     "load_tg119",
+    "load_prostate",
 ]

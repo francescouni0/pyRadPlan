@@ -133,7 +133,7 @@ class IonPencilBeamKernel(PyRadPlanBaseModel):
     """Data Model for a single Ion Pencil Beam Kernel."""
 
     energy: np.float64
-    peak_pos: np.float64
+    peak_pos: np.float64 = Field(default=np.float64(0.0))
     range: Optional[np.float64] = None
     offset: np.float64 = Field(default=np.float64(0.0))
     depths: NDArray[Shape["1-*"], np.float64]
@@ -270,9 +270,9 @@ class IonAccelerator(ExternalBeamMachine):
         The source-to-axis (-isocenter) distance of the machine
     """
 
-    radiation_mode: Annotated[str, StringConstraints(pattern="^(protons|helium|carbon)$")] = Field(
-        default="protons", validate_default=True
-    )
+    radiation_mode: Annotated[
+        str, StringConstraints(pattern="^(protons|helium|carbon|oxygen|VHEE)$")
+    ] = Field(default="protons", validate_default=True)
 
     sad: float = Field(ge=0.0, description="Source-to-axis distance", alias="SAD")
     bams_to_iso_dist: float = Field(
@@ -326,10 +326,16 @@ class IonAccelerator(ExternalBeamMachine):
         )
 
         # extrac required quantities
-        if "offset" in tabulated_energy_data:
-            returned_data["peak_positions"] = np.array(
-                tabulated_energy_data["peakPos"], dtype=np.float64
-            ) + np.array(tabulated_energy_data["offset"], dtype=np.float64)
+        peak_pos = tabulated_energy_data.get("peakPos")
+        offset = tabulated_energy_data.get("offset", 0.0)
+        if peak_pos is not None:
+            returned_data["peak_positions"] = np.array(peak_pos, dtype=np.float64) + np.array(
+                offset, dtype=np.float64
+            )
+        else:
+            returned_data["peak_positions"] = np.zeros_like(
+                returned_data["energies"], dtype=np.float64
+            )
 
         # extract beam foci
         foci = {}

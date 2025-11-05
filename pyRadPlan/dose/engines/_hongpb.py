@@ -8,7 +8,7 @@ class ParticleHongPencilBeamEngine(ParticlePencilBeamEngineAbstract):
     # constants
     short_name = "HongPB"
     name = "Hong Particle Pencil-Beam"
-    possible_radiation_modes = ["protons", "helium", "carbon"]
+    possible_radiation_modes = ["protons", "helium", "carbon", "oxygen", "VHEE"]
 
     # private methods
     def _calc_particle_bixel(self, bixel):
